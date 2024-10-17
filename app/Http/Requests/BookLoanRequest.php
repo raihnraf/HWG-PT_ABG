@@ -11,7 +11,7 @@ class BookLoanRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +22,8 @@ class BookLoanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'book_id' => 'required|exists:books,id',
+            'due_date' => 'required|date|after:today',
         ];
     }
 }
