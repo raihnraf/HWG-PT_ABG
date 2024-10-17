@@ -4,6 +4,8 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class Handler extends ExceptionHandler
 {
@@ -24,7 +26,17 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            //
+            if (!$e instanceof ValidationException) {
+                Log::error('Uncaught exception: ' . $e->getMessage());
+                Log::error('Stack trace: ' . $e->getTraceAsString());
+            }
+        });
+
+        $this->renderable(function (ValidationException $e, $request) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $e->errors(),
+            ], 422);
         });
     }
 }

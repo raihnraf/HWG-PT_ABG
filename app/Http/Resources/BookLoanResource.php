@@ -16,14 +16,19 @@ class BookLoanResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'user' => new UserResource($this->user),
-            'book' => new BookResource($this->book),
-            'borrowed_at' => $this->borrowed_at,
-            'due_date' => $this->due_date,
-            'returned_at' => $this->returned_at,
+            'user' => [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+            ],
+            'book' => [
+                'id' => $this->book->id,
+                'title' => $this->book->title,
+                'author' => $this->book->author,
+            ],
+            'borrowed_at' => $this->borrowed_at->toDateTimeString(),
+            'due_date' => $this->due_date->toDateTimeString(),
+            'returned_at' => $this->returned_at ? $this->returned_at->toDateTimeString() : null,
             'status' => $this->status,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
         ];
     }
 }

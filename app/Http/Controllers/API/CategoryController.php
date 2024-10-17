@@ -27,8 +27,9 @@ class CategoryController extends Controller
         return new CategoryResource($category);
     }
 
-    public function update(CategoryRequest $request, Category $category)
+    public function update(CategoryRequest $request, $id)
     {
+        $category = Category::findOrFail($id);
         $category->update($request->validated());
         return new CategoryResource($category);
     }
