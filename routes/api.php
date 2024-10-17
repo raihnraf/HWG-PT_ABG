@@ -6,6 +6,8 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CategoryController;
 use App\Http\Controllers\API\BookController;
 use App\Http\Controllers\API\BookLoanController;
+use App\Http\Controllers\API\VerificationController;
+use App\Http\Controllers\API\ForgotPasswordController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +23,10 @@ use App\Http\Controllers\API\BookLoanController;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+Route::post('forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
+Route::post('reset-password', [ForgotPasswordController::class, 'resetPassword']);
+
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -38,4 +44,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/book-loans', [BookLoanController::class, 'store']);
     Route::get('/book-loans/{bookLoan}', [BookLoanController::class, 'show']);
     Route::post('/book-loans/{bookLoan}/return', [BookLoanController::class, 'return']);
+
+    Route::post('email/verification-notification', [VerificationController::class, 'sendVerificationEmail']);
+    Route::get('verify-email/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify');
 });
+
