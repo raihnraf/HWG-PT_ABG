@@ -18,7 +18,7 @@ This project is a Book Management API built with Laravel 10. It provides endpoin
 
 - PHP 8.x
 - Laravel 10.x
-- MySQL (or your preferred database)
+- MySQL 
 - Laravel Sanctum for API authentication
 - Redis (for caching)
 
