@@ -7,6 +7,7 @@ use App\Http\Requests\BookRequest;
 use App\Http\Resources\BookResource;
 use App\Models\Book;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -14,83 +15,66 @@ class BookController extends Controller
 {
     public function index()
     {
-        $books = Book::with('category')->get();
-        return BookResource::collection($books);
+        return Cache::remember('books.all', 3600, function () {
+            $books = Book::all();
+            return BookResource::collection($books);
+        });
     }
 
     public function store(BookRequest $request)
     {
-        Log::info('BookController@store method called');
-        Log::info('Request data:', $request->all());
-
         try {
             $validatedData = $request->validated();
-            Log::info('Validated data:', $validatedData);
+            
+            // Ensure available_copies is set, defaulting to total_copies if not provided
+            $validatedData['available_copies'] = $validatedData['available_copies'] ?? $validatedData['total_copies'];
 
             $book = Book::create($validatedData);
             
-            if ($book) {
-                Log::info('Book created successfully', ['id' => $book->id, 'title' => $book->title]);
-                return new BookResource($book);
-            } else {
-                Log::error('Failed to create book');
+            if (!$book) {
+                Log::error('Failed to create book', $validatedData);
                 return response()->json(['error' => 'Failed to create book'], 500);
             }
+
+            // Reload the book to ensure we have the latest data
+            $book = $book->fresh();
+
+            Log::info('Book created successfully', ['id' => $book->id, 'available_copies' => $book->available_copies]);
+
+            return new BookResource($book);
         } catch (\Exception $e) {
             Log::error('Exception when creating book: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            return response()->json(['error' => 'An error occurred while creating the book: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'An error occurred while creating the book'], 500);
         }
     }
 
     public function show($id)
     {
-        $book = Book::find($id);
-        
-        if (!$book) {
-            return response()->json(['message' => 'Book not found'], 404);
-        }
-        
-        return new BookResource($book);
+        return Cache::remember('book.'.$id, 3600, function () use ($id) {
+            $book = Book::find($id);
+            
+            if (!$book) {
+                return response()->json(['message' => 'Book not found'], 404);
+            }
+            
+            return new BookResource($book);
+        });
     }
 
     public function update(BookRequest $request, $id)
     {
-        Log::info('BookController@update method called for book ID: ' . $id);
-        Log::info('Request data:', $request->all());
-
-        try {
-            $book = Book::findOrFail($id);
-            $validatedData = $request->validated();
-            Log::info('Validated data:', $validatedData);
-
-            $book->update($validatedData);
-            
-            Log::info('Book updated successfully', ['id' => $book->id, 'title' => $book->title]);
-            return new BookResource($book);
-        } catch (ValidationException $e) {
-            Log::warning('Validation failed when updating book', [
-                'id' => $id,
-                'errors' => $e->errors(),
-                'request_data' => $request->all()
-            ]);
-            return response()->json([
-                'message' => 'The given data was invalid.',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Exception when updating book: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            return response()->json([
-                'message' => 'An error occurred while updating the book.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $book = Book::findOrFail($id);
+        $book->update($request->validated());
+        return new BookResource($book);
     }
 
-    public function destroy(Book $book)
+    public function destroy($id)
     {
+        $book = Book::find($id);
         $book->delete();
         return response()->json(['message' => 'Book deleted successfully']);
+
+        Cache::forget('books.all');
+        Cache::forget('book.'.$id);
     }
 }

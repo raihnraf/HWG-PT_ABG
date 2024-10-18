@@ -10,6 +10,9 @@ use App\Models\BookLoan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\SendBookBorrowedNotification; 
+use Illuminate\Support\Facades\DB;
+use App\Models\Role;
 
 class BookLoanController extends Controller
 {
@@ -42,43 +45,67 @@ class BookLoanController extends Controller
 
     public function store(BookLoanRequest $request)
     {
-        $book = Book::findOrFail($request->book_id);
-        
-        if ($book->available_copies <= 0) {
-            return response()->json(['message' => 'No copies available for borrowing'], 400);
+        try {
+            $book = Book::findOrFail($request->book_id);
+            Log::info('Book copies:', ['copies' => $book->copies()->get()]);
+
+            if ($book->available_copies <= 0) {
+                return response()->json(['message' => 'No copies available for this book'], 400);
+            }
+
+            $bookLoan = null;
+
+            DB::transaction(function () use ($request, $book, &$bookLoan) {
+                // Find an available book copy
+                $bookCopy = $book->copies()->where('status', 'available')->first();
+
+                if (!$bookCopy) {
+                    throw new \Exception('No available copies found for this book');
+                }
+
+                $bookLoan = BookLoan::create([
+                    'user_id' => Auth::id(),
+                    'book_copy_id' => $bookCopy->id,
+                    'borrowed_at' => now(),
+                    'due_date' => $request->due_date,
+                    'status' => 'borrowed'
+                ]);
+
+                $bookCopy->update(['status' => 'borrowed']);
+                $book->decrement('available_copies');
+            });
+
+            if (!$bookLoan) {
+                return response()->json(['message' => 'Failed to create book loan'], 500);
+            }
+
+            return new BookLoanResource($bookLoan);
+
+        } catch (\Exception $e) {
+            Log::error('Error in BookLoanController@store: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'An error occurred while processing your request',
+                'error' => $e->getMessage()
+            ], 400);
         }
-
-        $bookLoan = BookLoan::create([
-            'user_id' => Auth::id(),
-            'book_id' => $request->book_id,
-            'borrowed_at' => now(),
-            'due_date' => $request->due_date,
-            'status' => 'borrowed',
-        ]);
-
-        $book->decrement('available_copies');
-
-        return new BookLoanResource($bookLoan);
     }
 
     public function return($id)
     {
         $bookLoan = BookLoan::findOrFail($id);
-        Log::info('Return method called for book loan: ' . $bookLoan->id);
-        if ($bookLoan->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
 
         if ($bookLoan->status === 'returned') {
             return response()->json(['message' => 'Book already returned'], 400);
         }
 
-        $bookLoan->update([
-            'returned_at' => now(),
-            'status' => 'returned',
-        ]);
+        DB::transaction(function () use ($bookLoan) {
+            $bookLoan->update([
+                'returned_at' => now(),
+                'status' => 'returned',
+            ]);
 
-        $bookLoan->book->increment('available_copies');
+            $bookLoan->bookCopy->update(['status' => 'available']);
+        });
 
         return new BookLoanResource($bookLoan);
     }

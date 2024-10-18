@@ -10,7 +10,7 @@ class BookLoan extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'book_id', 'borrowed_at', 'due_date', 'returned_at', 'status'
+        'user_id', 'book_copy_id', 'borrowed_at', 'due_date', 'returned_at', 'status'
     ];
 
     protected $casts = [
@@ -28,10 +28,18 @@ class BookLoan extends Model
     }
 
     /**
+     * Get the book copy that is loaned.
+     */
+    public function bookCopy()
+    {
+        return $this->belongsTo(BookCopy::class);
+    }
+
+    /**
      * Get the book that is loaned.
      */
     public function book()
     {
-        return $this->belongsTo(Book::class);
+        return $this->belongsTo(Book::class, 'book_copy_id', 'id');
     }
 }

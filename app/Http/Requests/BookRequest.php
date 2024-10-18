@@ -25,20 +25,16 @@ class BookRequest extends FormRequest
      */
     public function rules(): array
     {
-        $bookId = $this->route('book');
-        $rules = [
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|nullable|string',
-            'author' => 'sometimes|required|string|max:255',
-            'isbn' => 'sometimes|required|string|max:13|unique:books,isbn,' . $bookId,
-            'published_year' => 'sometimes|required|integer|min:1000|max:' . (date('Y') + 1),
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'total_copies' => 'sometimes|required|integer|min:0',
-            'available_copies' => 'sometimes|required|integer|min:0|lte:total_copies',
+        return [
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'author' => 'required|string|max:255',
+            'isbn' => 'required|string|max:13|unique:books,isbn',
+            'published_year' => 'required|integer|min:1000|max:' . (date('Y') + 1),
+            'category_id' => 'required|exists:categories,id',
+            'total_copies' => 'required|integer|min:0',
+            'available_copies' => 'required|integer|min:0|lte:total_copies',
         ];
-
-        // Only apply rules for fields that are present in the request
-        return array_intersect_key($rules, $this->all());
     }
 
     protected function failedValidation(Validator $validator)
@@ -74,5 +70,14 @@ class BookRequest extends FormRequest
                 'published_year' => min($this->published_year, date('Y') + 1)
             ]);
         }
+    }
+
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            if ($this->total_copies < $this->available_copies) {
+                $validator->errors()->add('available_copies', 'The available copies must not exceed the total copies.');
+            }
+        });
     }
 }

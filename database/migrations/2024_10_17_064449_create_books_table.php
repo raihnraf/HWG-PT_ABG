@@ -17,7 +17,6 @@ return new class extends Migration
             $table->integer('published_year');
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->integer('total_copies');
-            $table->integer('available_copies');
             $table->timestamps();
         });
     }

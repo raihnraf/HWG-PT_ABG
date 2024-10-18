@@ -14,6 +14,15 @@ class Book extends Model
         'category_id', 'total_copies', 'available_copies'
     ];
 
+    protected static function booted()
+    {
+        static::created(function ($book) {
+            for ($i = 0; $i < $book->total_copies; $i++) {
+                $book->copies()->create(['status' => 'available']);
+            }
+        });
+    }
+
     /**
      * Get the category that owns the book.
      */
@@ -23,10 +32,18 @@ class Book extends Model
     }
 
     /**
-     * Get the book loans for the book.
+     * Get the book copies for the book.
      */
-    public function bookLoans()
+    public function copies()
     {
-        return $this->hasMany(BookLoan::class);
+        return $this->hasMany(BookCopy::class);
+    }
+
+    /**
+     * Get the available copies of the book.
+     */
+    public function availableCopies()
+    {
+        return $this->copies()->where('status', 'available');
     }
 }
